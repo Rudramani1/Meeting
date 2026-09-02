@@ -97,7 +97,7 @@ function Meeting() {
 
             return (
                 peerConnectionsRef.current[
-                    userId
+                userId
                 ]
             );
         }
@@ -206,7 +206,7 @@ function Meeting() {
                     socketRef.current &&
 
                     socketRef.current.readyState ===
-                        WebSocket.OPEN
+                    WebSocket.OPEN
 
                 ) {
 
@@ -257,13 +257,13 @@ function Meeting() {
                 if (
 
                     peerConnection.connectionState ===
-                        "failed" ||
+                    "failed" ||
 
                     peerConnection.connectionState ===
-                        "disconnected" ||
+                    "disconnected" ||
 
                     peerConnection.connectionState ===
-                        "closed"
+                    "closed"
 
                 ) {
 
@@ -303,7 +303,7 @@ function Meeting() {
 
         const peerConnection =
             peerConnectionsRef.current[
-                userId
+            userId
             ];
 
 
@@ -397,7 +397,7 @@ function Meeting() {
         if (
             socketRef.current &&
             socketRef.current.readyState ===
-                WebSocket.OPEN
+            WebSocket.OPEN
         ) {
 
             socketRef.current.send(
@@ -436,7 +436,7 @@ function Meeting() {
 
         const queue =
             iceQueuesRef.current[
-                userId
+            userId
             ];
 
 
@@ -886,8 +886,8 @@ function Meeting() {
                             const peerConnection =
                                 peerConnectionsRef
                                     .current[
-                                        userId
-                                    ];
+                                userId
+                                ];
 
 
                             if (
@@ -959,8 +959,8 @@ function Meeting() {
                             const peerConnection =
                                 peerConnectionsRef
                                     .current[
-                                        userId
-                                    ];
+                                userId
+                                ];
 
 
                             // -------------------------------------------------
@@ -974,22 +974,22 @@ function Meeting() {
                                 if (
                                     !iceQueuesRef
                                         .current[
-                                            userId
-                                        ]
+                                    userId
+                                    ]
                                 ) {
 
                                     iceQueuesRef
                                         .current[
-                                            userId
-                                        ] = [];
+                                        userId
+                                    ] = [];
 
                                 }
 
 
                                 iceQueuesRef
                                     .current[
-                                        userId
-                                    ]
+                                    userId
+                                ]
                                     .push(
                                         message.candidate
                                     );
@@ -1047,22 +1047,22 @@ function Meeting() {
                                 if (
                                     !iceQueuesRef
                                         .current[
-                                            userId
-                                        ]
+                                    userId
+                                    ]
                                 ) {
 
                                     iceQueuesRef
                                         .current[
-                                            userId
-                                        ] = [];
+                                        userId
+                                    ] = [];
 
                                 }
 
 
                                 iceQueuesRef
                                     .current[
-                                        userId
-                                    ]
+                                    userId
+                                ]
                                     .push(
                                         message.candidate
                                     );
@@ -1517,13 +1517,13 @@ function Meeting() {
                                     if (
                                         element &&
                                         remoteVideosRef.current[
-                                            userId
+                                        userId
                                         ]
                                     ) {
 
                                         element.srcObject =
                                             remoteVideosRef.current[
-                                                userId
+                                            userId
                                             ];
 
                                     }
@@ -1539,7 +1539,7 @@ function Meeting() {
 
                                 {
                                     participants[
-                                        userId
+                                    userId
                                     ] ||
                                     "User"
                                 }
@@ -1569,11 +1569,10 @@ function Meeting() {
 
                     <button
                         onClick={toggleMic}
-                        className={`px-4 py-3 rounded-xl transition ${
-                            micOn
+                        className={`px-4 py-3 rounded-xl transition ${micOn
                                 ? "bg-gray-700 hover:bg-gray-600"
                                 : "bg-red-600 hover:bg-red-700"
-                        }`}
+                            }`}
                     >
 
                         {micOn
@@ -1589,11 +1588,10 @@ function Meeting() {
 
                     <button
                         onClick={toggleCamera}
-                        className={`px-4 py-3 rounded-xl transition ${
-                            cameraOn
+                        className={`px-4 py-3 rounded-xl transition ${cameraOn
                                 ? "bg-gray-700 hover:bg-gray-600"
                                 : "bg-red-600 hover:bg-red-700"
-                        }`}
+                            }`}
                     >
 
                         {cameraOn
