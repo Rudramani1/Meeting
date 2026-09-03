@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import Chat from "../components/Chat";
+import ControlBar from "../components/ControlBar";
+import Participants from "../components/Participants";
+import VideoTile from "../components/VideoTile";
 
 
 function Meeting() {
@@ -10,23 +14,19 @@ function Meeting() {
 
     const localVideoRef = useRef(null);
 
-    const peerConnectionsRef =
-        useRef({});
+    const peerConnectionsRef = useRef({});
 
-    const remoteVideosRef =
-        useRef({});
+    const remoteVideosRef = useRef({});
 
-    const streamRef =
-        useRef(null);
+    const streamRef = useRef(null);
 
-    const socketRef =
-        useRef(null);
+    const screenStreamRef = useRef(null);
 
-    const myUserIdRef =
-        useRef(null);
+    const socketRef = useRef(null);
 
-    const iceQueuesRef =
-        useRef({});
+    const myUserIdRef = useRef(null);
+
+    const iceQueuesRef = useRef({});
 
 
     // =====================================================
@@ -39,22 +39,33 @@ function Meeting() {
     const [participants, setParticipants] =
         useState({});
 
+    const [myUserId, setMyUserId] =
+        useState(null);
+
     const [cameraOn, setCameraOn] =
         useState(true);
 
     const [micOn, setMicOn] =
         useState(true);
 
+    const [screenSharing, setScreenSharing] =
+        useState(false);
+
+    const [chatOpen, setChatOpen] =
+        useState(false);
+
+    const [messages, setMessages] =
+        useState([]);
+    const [participantsOpen, setParticipantsOpen] = useState(false);
+
 
     // =====================================================
     // ROUTER
     // =====================================================
 
-    const { meetingId } =
-        useParams();
+    const { meetingId } = useParams();
 
-    const navigate =
-        useNavigate();
+    const navigate = useNavigate();
 
 
     // =====================================================
@@ -66,7 +77,7 @@ function Meeting() {
 
 
     // =====================================================
-    // USER
+    // CURRENT USER
     // =====================================================
 
     const user =
@@ -88,7 +99,7 @@ function Meeting() {
 
 
         // -------------------------------------------------
-        // Already exists
+        // Don't create duplicate connection
         // -------------------------------------------------
 
         if (
@@ -96,10 +107,9 @@ function Meeting() {
         ) {
 
             return (
-                peerConnectionsRef.current[
-                userId
-                ]
+                peerConnectionsRef.current[userId]
             );
+
         }
 
 
@@ -122,9 +132,9 @@ function Meeting() {
             });
 
 
-        // -------------------------------------------------
-        // Add local tracks
-        // -------------------------------------------------
+        // =================================================
+        // ADD LOCAL CAMERA + MICROPHONE
+        // =================================================
 
         if (streamRef.current) {
 
@@ -142,9 +152,9 @@ function Meeting() {
         }
 
 
-        // -------------------------------------------------
-        // Receive remote tracks
-        // -------------------------------------------------
+        // =================================================
+        // RECEIVE REMOTE TRACK
+        // =================================================
 
         peerConnection.ontrack =
             (event) => {
@@ -179,11 +189,8 @@ function Meeting() {
 
 
                         return [
-
                             ...currentUsers,
-
                             userId
-
                         ];
 
                     }
@@ -192,9 +199,9 @@ function Meeting() {
             };
 
 
-        // -------------------------------------------------
-        // ICE candidate
-        // -------------------------------------------------
+        // =================================================
+        // ICE CANDIDATE
+        // =================================================
 
         peerConnection.onicecandidate =
             (event) => {
@@ -238,9 +245,9 @@ function Meeting() {
             };
 
 
-        // -------------------------------------------------
-        // Connection state
-        // -------------------------------------------------
+        // =================================================
+        // CONNECTION STATE
+        // =================================================
 
         peerConnection.onconnectionstatechange =
             () => {
@@ -276,9 +283,9 @@ function Meeting() {
             };
 
 
-        // -------------------------------------------------
-        // Store connection
-        // -------------------------------------------------
+        // =================================================
+        // STORE CONNECTION
+        // =================================================
 
         peerConnectionsRef.current[
             userId
@@ -286,6 +293,7 @@ function Meeting() {
 
 
         return peerConnection;
+
     }
 
 
@@ -344,7 +352,9 @@ function Meeting() {
                     ...currentParticipants
                 };
 
+
                 delete updated[userId];
+
 
                 return updated;
 
@@ -395,20 +405,26 @@ function Meeting() {
         // -------------------------------------------------
 
         if (
+
             socketRef.current &&
+
             socketRef.current.readyState ===
             WebSocket.OPEN
+
         ) {
 
             socketRef.current.send(
 
                 JSON.stringify({
 
-                    type: "offer",
+                    type:
+                        "offer",
 
-                    target: userId,
+                    target:
+                        userId,
 
-                    offer: offer
+                    offer:
+                        offer
 
                 })
 
@@ -484,6 +500,53 @@ function Meeting() {
 
 
     // =====================================================
+    // SEND CHAT MESSAGE
+    // =====================================================
+
+    function sendChatMessage(text) {
+
+        if (
+
+            !socketRef.current ||
+
+            socketRef.current.readyState !==
+            WebSocket.OPEN
+
+        ) {
+
+            console.error(
+                "WebSocket is not connected"
+            );
+
+            return;
+
+        }
+
+
+        socketRef.current.send(
+
+            JSON.stringify({
+
+                type:
+                    "chat",
+
+                text:
+                    text
+
+            })
+
+        );
+
+
+        console.log(
+            "Chat message sent:",
+            text
+        );
+
+    }
+
+
+    // =====================================================
     // START MEETING
     // =====================================================
 
@@ -502,7 +565,7 @@ function Meeting() {
 
 
                 // =================================================
-                // GET CAMERA + MICROPHONE
+                // CAMERA + MICROPHONE
                 // =================================================
 
                 const stream =
@@ -518,7 +581,7 @@ function Meeting() {
 
 
                 // -------------------------------------------------
-                // If component was already removed
+                // Component was already removed
                 // -------------------------------------------------
 
                 if (cancelled) {
@@ -536,7 +599,7 @@ function Meeting() {
 
 
                 // -------------------------------------------------
-                // Store stream
+                // Store local stream
                 // -------------------------------------------------
 
                 streamRef.current =
@@ -544,7 +607,7 @@ function Meeting() {
 
 
                 // -------------------------------------------------
-                // Display local video
+                // Show local video
                 // -------------------------------------------------
 
                 if (
@@ -563,7 +626,7 @@ function Meeting() {
 
 
                 // =================================================
-                // WEBSOCKET URL
+                // CREATE WEBSOCKET
                 // =================================================
 
                 const WS_URL =
@@ -577,14 +640,13 @@ function Meeting() {
                     user?.name ||
                     "Unknown User";
 
-
                 const socket =
                     new WebSocket(
-
                         `${WS_URL}/ws/${meetingId}?name=${encodeURIComponent(
                             participantName
+                        )}&uid=${encodeURIComponent(
+                            user?.uid || ""
                         )}`
-
                     );
 
 
@@ -624,9 +686,64 @@ function Meeting() {
                         );
 
 
-                        // =================================================
+                        // =========================================
+                        // CHAT MESSAGE
+                        // =========================================
+
+                        if (
+                            message.type ===
+                            "chat"
+                        ) {
+
+                            const chatMessage = {
+
+                                id:
+                                    crypto.randomUUID(),
+
+                                senderId:
+                                    message.senderId,
+
+                                senderName:
+                                    message.senderName,
+
+                                text:
+                                    message.text,
+
+                                time:
+                                    new Date()
+                                        .toLocaleTimeString(
+                                            [],
+                                            {
+                                                hour:
+                                                    "2-digit",
+
+                                                minute:
+                                                    "2-digit"
+                                            }
+                                        )
+
+                            };
+
+
+                            setMessages(
+                                (currentMessages) => [
+
+                                    ...currentMessages,
+
+                                    chatMessage
+
+                                ]
+                            );
+
+
+                            return;
+
+                        }
+
+
+                        // =========================================
                         // USER ID
-                        // =================================================
+                        // =========================================
 
                         if (
                             message.type ===
@@ -637,14 +754,19 @@ function Meeting() {
                                 message.userId;
 
 
+                            setMyUserId(
+                                message.userId
+                            );
+
+
                             setParticipants(
                                 (current) => ({
-
                                     ...current,
-
-                                    [message.userId]:
-                                        message.name
-
+                                    [message.userId]: {
+                                        name: message.name,
+                                        micOn: true,
+                                        cameraOn: true
+                                    }
                                 })
                             );
 
@@ -663,9 +785,9 @@ function Meeting() {
                         }
 
 
-                        // =================================================
+                        // =========================================
                         // EXISTING USERS
-                        // =================================================
+                        // =========================================
 
                         if (
                             message.type ===
@@ -685,12 +807,12 @@ function Meeting() {
 
                                 setParticipants(
                                     (current) => ({
-
                                         ...current,
-
-                                        [participant.userId]:
-                                            participant.name
-
+                                        [participant.userId]: {
+                                            name: participant.name,
+                                            micOn: true,
+                                            cameraOn: true
+                                        }
                                     })
                                 );
 
@@ -704,9 +826,9 @@ function Meeting() {
                         }
 
 
-                        // =================================================
+                        // =========================================
                         // USER JOINED
-                        // =================================================
+                        // =========================================
 
                         if (
                             message.type ===
@@ -715,6 +837,7 @@ function Meeting() {
 
                             const userId =
                                 message.userId;
+
 
                             const name =
                                 message.name;
@@ -727,21 +850,102 @@ function Meeting() {
 
                             setParticipants(
                                 (current) => ({
-
                                     ...current,
-
-                                    [userId]:
-                                        name
-
+                                    [userId]: {
+                                        name: name,
+                                        micOn: true,
+                                        cameraOn: true
+                                    }
                                 })
                             );
 
                         }
+                        // =========================================
+                        // MICROPHONE STATUS
+                        // =========================================
 
+                        if (
+                            message.type ===
+                            "mic-status"
+                        ) {
+                            const userId =
+                                message.userId;
 
-                        // =================================================
+                            console.log(
+                                "MIC STATUS RECEIVED:",
+                                message
+                            );
+
+                            setParticipants(
+                                (current) => {
+                                    const participant =
+                                        current[userId];
+
+                                    return {
+                                        ...current,
+                                        [userId]: {
+                                            name:
+                                                participant?.name ||
+                                                "Unknown User",
+
+                                            micOn:
+                                                message.micOn,
+
+                                            cameraOn:
+                                                participant?.cameraOn ??
+                                                true
+                                        }
+                                    };
+                                }
+                            );
+
+                            return;
+                        }
+                        // =========================================
+                        // CAMERA STATUS
+                        // =========================================
+
+                        if (
+                            message.type ===
+                            "camera-status"
+                        ) {
+                            const userId =
+                                message.userId;
+
+                            console.log(
+                                "CAMERA STATUS RECEIVED:",
+                                message
+                            );
+
+                            setParticipants(
+                                (current) => {
+                                    const participant =
+                                        current[userId];
+
+                                    return {
+                                        ...current,
+                                        [userId]: {
+                                            name:
+                                                participant?.name ||
+                                                "Unknown User",
+
+                                            micOn:
+                                                participant?.micOn ??
+                                                true,
+
+                                            cameraOn:
+                                                message.cameraOn
+                                        }
+                                    };
+                                }
+                            );
+
+                            return;
+                        }
+
+                        // =========================================
                         // OFFER
-                        // =================================================
+                        // =========================================
 
                         if (
                             message.type ===
@@ -757,9 +961,11 @@ function Meeting() {
 
                                     ...current,
 
-                                    [userId]:
-                                        message.senderName ||
-                                        userId
+                                    [userId]: {
+                                        name: message.senderName || userId,
+                                        micOn: true,
+                                        cameraOn: true
+                                    }
 
                                 })
                             );
@@ -777,9 +983,9 @@ function Meeting() {
                                 );
 
 
-                            // -------------------------------------------------
-                            // Set remote description
-                            // -------------------------------------------------
+                            // ------------------------------------------------
+                            // Remote description
+                            // ------------------------------------------------
 
                             await peerConnection
                                 .setRemoteDescription(
@@ -792,9 +998,9 @@ function Meeting() {
                             );
 
 
-                            // -------------------------------------------------
-                            // Add queued ICE
-                            // -------------------------------------------------
+                            // ------------------------------------------------
+                            // Queued ICE
+                            // ------------------------------------------------
 
                             await addQueuedIceCandidates(
                                 userId,
@@ -802,18 +1008,18 @@ function Meeting() {
                             );
 
 
-                            // -------------------------------------------------
+                            // ------------------------------------------------
                             // Create answer
-                            // -------------------------------------------------
+                            // ------------------------------------------------
 
                             const answer =
                                 await peerConnection
                                     .createAnswer();
 
 
-                            // -------------------------------------------------
+                            // ------------------------------------------------
                             // Set local description
-                            // -------------------------------------------------
+                            // ------------------------------------------------
 
                             await peerConnection
                                 .setLocalDescription(
@@ -821,9 +1027,9 @@ function Meeting() {
                                 );
 
 
-                            // -------------------------------------------------
+                            // ------------------------------------------------
                             // Send answer
-                            // -------------------------------------------------
+                            // ------------------------------------------------
 
                             socket.send(
 
@@ -851,9 +1057,9 @@ function Meeting() {
                         }
 
 
-                        // =================================================
+                        // =========================================
                         // ANSWER
-                        // =================================================
+                        // =========================================
 
                         if (
                             message.type ===
@@ -869,9 +1075,11 @@ function Meeting() {
 
                                     ...current,
 
-                                    [userId]:
-                                        message.senderName ||
-                                        userId
+                                    [userId]: {
+                                        name: message.senderName || userId,
+                                        micOn: true,
+                                        cameraOn: true
+                                    }
 
                                 })
                             );
@@ -924,9 +1132,9 @@ function Meeting() {
                         }
 
 
-                        // =================================================
+                        // =========================================
                         // ICE CANDIDATE
-                        // =================================================
+                        // =========================================
 
                         if (
                             message.type ===
@@ -942,9 +1150,11 @@ function Meeting() {
 
                                     ...current,
 
-                                    [userId]:
-                                        message.senderName ||
-                                        userId
+                                    [userId]: {
+                                        name: message.senderName || userId,
+                                        micOn: true,
+                                        cameraOn: true
+                                    }
 
                                 })
                             );
@@ -963,9 +1173,9 @@ function Meeting() {
                                 ];
 
 
-                            // -------------------------------------------------
+                            // ------------------------------------------------
                             // Peer doesn't exist yet
-                            // -------------------------------------------------
+                            // ------------------------------------------------
 
                             if (
                                 !peerConnection
@@ -1005,9 +1215,9 @@ function Meeting() {
                             }
 
 
-                            // -------------------------------------------------
+                            // ------------------------------------------------
                             // Remote description exists
-                            // -------------------------------------------------
+                            // ------------------------------------------------
 
                             if (
                                 peerConnection
@@ -1038,9 +1248,9 @@ function Meeting() {
                             }
 
 
-                            // -------------------------------------------------
+                            // ------------------------------------------------
                             // Remote description doesn't exist
-                            // -------------------------------------------------
+                            // ------------------------------------------------
 
                             else {
 
@@ -1077,9 +1287,9 @@ function Meeting() {
                         }
 
 
-                        // =================================================
+                        // =========================================
                         // USER LEFT
-                        // =================================================
+                        // =========================================
 
                         if (
                             message.type ===
@@ -1153,9 +1363,9 @@ function Meeting() {
         startMeeting();
 
 
-        // =================================================
+        // =====================================================
         // CLEANUP
-        // =================================================
+        // =====================================================
 
         return () => {
 
@@ -1163,7 +1373,35 @@ function Meeting() {
 
 
             // -------------------------------------------------
-            // Stop local tracks
+            // Stop screen sharing
+            // -------------------------------------------------
+
+            if (
+                screenStreamRef.current
+            ) {
+
+                screenStreamRef.current
+                    .getTracks()
+                    .forEach(
+                        (track) => {
+
+                            track.onended =
+                                null;
+
+                            track.stop();
+
+                        }
+                    );
+
+
+                screenStreamRef.current =
+                    null;
+
+            }
+
+
+            // -------------------------------------------------
+            // Stop camera + microphone
             // -------------------------------------------------
 
             if (
@@ -1173,9 +1411,8 @@ function Meeting() {
                 streamRef.current
                     .getTracks()
                     .forEach(
-                        (track) => {
-                            track.stop();
-                        }
+                        (track) =>
+                            track.stop()
                     );
 
 
@@ -1252,27 +1489,36 @@ function Meeting() {
     // =====================================================
 
     function toggleCamera() {
-
-        const videoTrack =
-            streamRef.current
-                ?.getVideoTracks()[0];
-
-
-        if (!videoTrack) {
-
+        if (!streamRef.current) {
             return;
-
         }
 
+        const videoTrack =
+            streamRef.current.getVideoTracks()[0];
+
+        if (!videoTrack) {
+            return;
+        }
 
         videoTrack.enabled =
             !videoTrack.enabled;
 
+        const newCameraState =
+            videoTrack.enabled;
 
-        setCameraOn(
-            videoTrack.enabled
-        );
+        setCameraOn(newCameraState);
 
+        if (
+            socketRef.current &&
+            socketRef.current.readyState === WebSocket.OPEN
+        ) {
+            socketRef.current.send(
+                JSON.stringify({
+                    type: "camera-status",
+                    cameraOn: newCameraState
+                })
+            );
+        }
     }
 
 
@@ -1281,26 +1527,316 @@ function Meeting() {
     // =====================================================
 
     function toggleMic() {
+        if (!streamRef.current) {
+            return;
+        }
 
         const audioTrack =
-            streamRef.current
-                ?.getAudioTracks()[0];
-
+            streamRef.current.getAudioTracks()[0];
 
         if (!audioTrack) {
+            return;
+        }
+
+        audioTrack.enabled =
+            !audioTrack.enabled;
+
+        const newMicState =
+            audioTrack.enabled;
+
+        setMicOn(newMicState);
+
+        if (
+            socketRef.current &&
+            socketRef.current.readyState === WebSocket.OPEN
+        ) {
+            socketRef.current.send(
+                JSON.stringify({
+                    type: "mic-status",
+                    micOn: newMicState
+                })
+            );
+        }
+    }
+
+
+    // =====================================================
+    // START SCREEN SHARE
+    // =====================================================
+
+    async function startScreenShare() {
+
+        try {
+
+            console.log(
+                "Starting screen share..."
+            );
+
+
+            // -------------------------------------------------
+            // Ask browser for screen
+            // -------------------------------------------------
+
+            const screenStream =
+                await navigator
+                    .mediaDevices
+                    .getDisplayMedia({
+
+                        video: true,
+
+                        audio: false
+
+                    });
+
+
+            const screenTrack =
+                screenStream
+                    .getVideoTracks()[0];
+
+
+            if (!screenTrack) {
+
+                return;
+
+            }
+
+
+            screenStreamRef.current =
+                screenStream;
+
+
+            // =================================================
+            // REPLACE CAMERA TRACK
+            // =================================================
+
+            const peerConnections =
+                Object.values(
+                    peerConnectionsRef.current
+                );
+
+
+            for (
+                const peerConnection
+                of peerConnections
+            ) {
+
+                const videoSender =
+                    peerConnection
+                        .getSenders()
+                        .find(
+                            (sender) =>
+                                sender.track &&
+                                sender.track.kind ===
+                                "video"
+                        );
+
+
+                if (videoSender) {
+
+                    await videoSender
+                        .replaceTrack(
+                            screenTrack
+                        );
+
+                }
+
+            }
+
+
+            // =================================================
+            // SHOW SCREEN LOCALLY
+            // =================================================
+
+            if (
+                localVideoRef.current
+            ) {
+
+                localVideoRef.current.srcObject =
+                    screenStream;
+
+            }
+
+
+            setScreenSharing(
+                true
+            );
+
+
+            console.log(
+                "Screen sharing started"
+            );
+
+
+            // =================================================
+            // BROWSER STOP SHARING
+            // =================================================
+
+            screenTrack.onended =
+                () => {
+
+                    console.log(
+                        "Browser stopped screen share"
+                    );
+
+
+                    stopScreenShare();
+
+                };
+
+
+        } catch (error) {
+
+            console.error(
+                "Screen sharing failed:",
+                error
+            );
+
+        }
+
+    }
+
+
+    // =====================================================
+    // STOP SCREEN SHARE
+    // =====================================================
+
+    async function stopScreenShare() {
+
+        console.log(
+            "Stopping screen share..."
+        );
+
+
+        const cameraTrack =
+            streamRef.current
+                ?.getVideoTracks()[0];
+
+
+        if (!cameraTrack) {
 
             return;
 
         }
 
 
-        audioTrack.enabled =
-            !audioTrack.enabled;
+        // =================================================
+        // REPLACE SCREEN WITH CAMERA
+        // =================================================
+
+        const peerConnections =
+            Object.values(
+                peerConnectionsRef.current
+            );
 
 
-        setMicOn(
-            audioTrack.enabled
+        for (
+            const peerConnection
+            of peerConnections
+        ) {
+
+            const videoSender =
+                peerConnection
+                    .getSenders()
+                    .find(
+                        (sender) =>
+                            sender.track &&
+                            sender.track.kind ===
+                            "video"
+                    );
+
+
+            if (videoSender) {
+
+                try {
+
+                    await videoSender
+                        .replaceTrack(
+                            cameraTrack
+                        );
+
+                } catch (error) {
+
+                    console.error(
+                        "Could not restore camera:",
+                        error
+                    );
+
+                }
+
+            }
+
+        }
+
+
+        // =================================================
+        // STOP SCREEN TRACK
+        // =================================================
+
+        if (
+            screenStreamRef.current
+        ) {
+
+            screenStreamRef.current
+                .getTracks()
+                .forEach(
+                    (track) => {
+
+                        track.onended =
+                            null;
+
+                        track.stop();
+
+                    }
+                );
+
+
+            screenStreamRef.current =
+                null;
+
+        }
+
+
+        // =================================================
+        // RESTORE LOCAL CAMERA
+        // =================================================
+
+        if (
+            localVideoRef.current
+        ) {
+
+            localVideoRef.current.srcObject =
+                streamRef.current;
+
+        }
+
+
+        setScreenSharing(
+            false
         );
+
+
+        console.log(
+            "Screen sharing stopped"
+        );
+
+    }
+
+
+    // =====================================================
+    // TOGGLE SCREEN SHARE
+    // =====================================================
+
+    async function toggleScreenShare() {
+
+        if (screenSharing) {
+
+            await stopScreenShare();
+
+        } else {
+
+            await startScreenShare();
+
+        }
 
     }
 
@@ -1317,7 +1853,35 @@ function Meeting() {
 
 
         // -------------------------------------------------
-        // Stop local tracks
+        // Stop screen sharing
+        // -------------------------------------------------
+
+        if (
+            screenStreamRef.current
+        ) {
+
+            screenStreamRef.current
+                .getTracks()
+                .forEach(
+                    (track) => {
+
+                        track.onended =
+                            null;
+
+                        track.stop();
+
+                    }
+                );
+
+
+            screenStreamRef.current =
+                null;
+
+        }
+
+
+        // -------------------------------------------------
+        // Stop camera + microphone
         // -------------------------------------------------
 
         if (
@@ -1389,7 +1953,7 @@ function Meeting() {
 
 
     // =====================================================
-    // TOTAL PARTICIPANTS
+    // PARTICIPANT COUNT
     // =====================================================
 
     const participantCount =
@@ -1401,17 +1965,15 @@ function Meeting() {
     // =====================================================
 
     return (
+        <div className="min-h-screen bg-black text-white p-6 pb-28">
 
-        <div className="min-h-screen bg-black text-white p-6">
-
-            {/* ==============================================
+            {/* =================================================
                 HEADER
-            =============================================== */}
+            ================================================== */}
 
             <div className="flex justify-between items-center">
 
                 <div>
-
                     <h1 className="text-2xl font-bold">
                         Meeting Room
                     </h1>
@@ -1419,210 +1981,148 @@ function Meeting() {
                     <p className="mt-1 text-gray-400">
                         Meeting ID: {meetingId}
                     </p>
-
                 </div>
 
-
                 <div className="bg-gray-800 px-4 py-2 rounded-lg">
-
                     👥 {participantCount}
-
                 </div>
 
             </div>
 
 
-            {/* ==============================================
-                WELCOME
-            =============================================== */}
-
-            <p className="mt-4 text-gray-300">
-
-                Welcome{" "}
-
-                <span className="font-semibold text-white">
-
-                    {user?.name}
-
-                </span>
-
-            </p>
-
-
-            {/* ==============================================
+            {/* =================================================
                 VIDEO GRID
-            =============================================== */}
+            ================================================== */}
 
-            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-fr">
 
-
-                {/* ==========================================
+                {/* =============================================
                     LOCAL VIDEO
-                =========================================== */}
+                ============================================== */}
 
-                <div className="relative w-full aspect-video bg-gray-900 rounded-xl overflow-hidden">
-
-                    <video
-                        ref={localVideoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        className="w-full h-full object-cover"
+                <div className="relative aspect-video">
+                    <VideoTile
+                        videoRef={localVideoRef}
+                        name={user?.name || "You"}
+                        muted={true}
+                        micOn={micOn}
+                        cameraOn={cameraOn}
+                        screenSharing={screenSharing}
                     />
-
-
-                    {/* Name */}
-
-                    <div className="absolute bottom-3 left-3 bg-black/70 px-3 py-1 rounded-lg">
-
-                        {user?.name} (You)
-
-                    </div>
-
-
-                    {/* Camera off indicator */}
-
-                    {!cameraOn && (
-
-                        <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
-
-                            <div className="text-5xl">
-                                📷
-                            </div>
-
-                        </div>
-
-                    )}
 
                 </div>
 
 
-                {/* ==========================================
+                {/* =============================================
                     REMOTE VIDEOS
-                =========================================== */}
+                ============================================== */}
 
                 {remoteUsers.map(
                     (userId) => (
-
                         <div
                             key={userId}
-                            className="relative w-full aspect-video bg-gray-900 rounded-xl overflow-hidden"
+                            className="relative aspect-video"
                         >
 
-                            <video
-                                autoPlay
-                                playsInline
-                                ref={(element) => {
-
+                            <VideoTile
+                                videoRef={(element) => {
                                     if (
                                         element &&
-                                        remoteVideosRef.current[
-                                        userId
-                                        ]
+                                        remoteVideosRef.current[userId]
                                     ) {
-
                                         element.srcObject =
-                                            remoteVideosRef.current[
-                                            userId
-                                            ];
-
+                                            remoteVideosRef.current[userId];
                                     }
-
                                 }}
-                                className="w-full h-full object-cover"
-                            />
-
-
-                            {/* Name */}
-
-                            <div className="absolute bottom-3 left-3 bg-black/70 px-3 py-1 rounded-lg">
-
-                                {
-                                    participants[
-                                    userId
-                                    ] ||
+                                name={
+                                    participants[userId]?.name ||
                                     "User"
                                 }
-
-                            </div>
+                                muted={false}
+                                micOn={
+                                    participants[userId]?.micOn ?? true
+                                }
+                                cameraOn={
+                                    participants[userId]?.cameraOn ?? true
+                                }
+                                screenSharing={false}
+                            />
 
                         </div>
-
                     )
                 )}
 
             </div>
 
 
-            {/* ==============================================
-                CONTROLS
-            =============================================== */}
+            {/* =================================================
+                CONTROL BAR
+            ================================================== */}
 
-            <div className="fixed bottom-6 left-1/2 -translate-x-1/2">
+            <ControlBar
+                micOn={micOn}
+                cameraOn={cameraOn}
+                screenSharing={screenSharing}
+                chatOpen={chatOpen}
+                participantsOpen={participantsOpen}
 
-                <div className="flex items-center gap-3 bg-gray-900 border border-gray-700 px-4 py-3 rounded-2xl shadow-xl">
+                onToggleMic={toggleMic}
 
+                onToggleCamera={toggleCamera}
 
-                    {/* ======================================
-                        MICROPHONE
-                    ======================================= */}
+                onToggleScreenShare={
+                    toggleScreenShare
+                }
 
-                    <button
-                        onClick={toggleMic}
-                        className={`px-4 py-3 rounded-xl transition ${micOn
-                                ? "bg-gray-700 hover:bg-gray-600"
-                                : "bg-red-600 hover:bg-red-700"
-                            }`}
-                    >
+                onToggleChat={() =>
+                    setChatOpen(
+                        (current) => !current
+                    )
+                }
 
-                        {micOn
-                            ? "🎤"
-                            : "🔇"}
+                onToggleParticipants={() =>
+                    setParticipantsOpen(
+                        (current) => !current
+                    )
+                }
 
-                    </button>
-
-
-                    {/* ======================================
-                        CAMERA
-                    ======================================= */}
-
-                    <button
-                        onClick={toggleCamera}
-                        className={`px-4 py-3 rounded-xl transition ${cameraOn
-                                ? "bg-gray-700 hover:bg-gray-600"
-                                : "bg-red-600 hover:bg-red-700"
-                            }`}
-                    >
-
-                        {cameraOn
-                            ? "📹"
-                            : "📷"}
-
-                    </button>
+                onLeave={leaveMeeting}
+            />
 
 
-                    {/* ======================================
-                        LEAVE
-                    ======================================= */}
+            {/* =================================================
+                CHAT
+            ================================================== */}
 
-                    <button
-                        onClick={leaveMeeting}
-                        className="px-5 py-3 rounded-xl bg-red-600 hover:bg-red-700 transition font-semibold"
-                    >
+            {chatOpen && (
+                <Chat
+                    messages={messages}
+                    onSendMessage={sendChatMessage}
+                    currentUserId={myUserId}
+                    currentUserName={user?.name}
+                    onClose={() =>
+                        setChatOpen(false)
+                    }
+                />
+            )}
 
-                        Leave
 
-                    </button>
+            {/* =================================================
+                PARTICIPANTS
+            ================================================== */}
 
-                </div>
-
-            </div>
+            {participantsOpen && (
+                <Participants
+                    participants={participants}
+                    currentUserId={myUserId}
+                    onClose={() =>
+                        setParticipantsOpen(false)
+                    }
+                />
+            )}
 
         </div>
-
     );
-
 }
-
 
 export default Meeting;
