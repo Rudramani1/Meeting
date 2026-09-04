@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+
 import Chat from "../components/Chat";
 import ControlBar from "../components/ControlBar";
 import Participants from "../components/Participants";
 import VideoTile from "../components/VideoTile";
-
 
 function Meeting() {
 
@@ -33,30 +33,24 @@ function Meeting() {
     // STATE
     // =====================================================
 
-    const [remoteUsers, setRemoteUsers] =
-        useState([]);
+    const [remoteUsers, setRemoteUsers] = useState([]);
 
-    const [participants, setParticipants] =
-        useState({});
+    const [participants, setParticipants] = useState({});
 
-    const [myUserId, setMyUserId] =
-        useState(null);
+    const [myUserId, setMyUserId] = useState(null);
 
-    const [cameraOn, setCameraOn] =
-        useState(true);
+    const [cameraOn, setCameraOn] = useState(true);
 
-    const [micOn, setMicOn] =
-        useState(true);
+    const [micOn, setMicOn] = useState(true);
 
-    const [screenSharing, setScreenSharing] =
+    const [screenSharing, setScreenSharing] = useState(false);
+
+    const [chatOpen, setChatOpen] = useState(false);
+
+    const [messages, setMessages] = useState([]);
+
+    const [participantsOpen, setParticipantsOpen] =
         useState(false);
-
-    const [chatOpen, setChatOpen] =
-        useState(false);
-
-    const [messages, setMessages] =
-        useState([]);
-    const [participantsOpen, setParticipantsOpen] = useState(false);
 
 
     // =====================================================
@@ -121,12 +115,10 @@ function Meeting() {
             new RTCPeerConnection({
 
                 iceServers: [
-
                     {
                         urls:
                             "stun:stun.l.google.com:19302"
                     }
-
                 ]
 
             });
@@ -168,6 +160,10 @@ function Meeting() {
                 const remoteStream =
                     event.streams[0];
 
+                if (!remoteStream) {
+                    return;
+                }
+
 
                 remoteVideosRef.current[
                     userId
@@ -207,18 +203,13 @@ function Meeting() {
             (event) => {
 
                 if (
-
                     event.candidate &&
-
                     socketRef.current &&
-
                     socketRef.current.readyState ===
-                    WebSocket.OPEN
-
+                        WebSocket.OPEN
                 ) {
 
                     socketRef.current.send(
-
                         JSON.stringify({
 
                             type:
@@ -231,7 +222,6 @@ function Meeting() {
                                 event.candidate
 
                         })
-
                     );
 
 
@@ -253,25 +243,18 @@ function Meeting() {
             () => {
 
                 console.log(
-
                     `Connection with ${userId}:`,
-
                     peerConnection.connectionState
-
                 );
 
 
                 if (
-
                     peerConnection.connectionState ===
-                    "failed" ||
-
+                        "failed" ||
                     peerConnection.connectionState ===
-                    "disconnected" ||
-
+                        "disconnected" ||
                     peerConnection.connectionState ===
-                    "closed"
-
+                        "closed"
                 ) {
 
                     removePeerConnection(
@@ -311,7 +294,7 @@ function Meeting() {
 
         const peerConnection =
             peerConnectionsRef.current[
-            userId
+                userId
             ];
 
 
@@ -382,17 +365,98 @@ function Meeting() {
             );
 
 
-        // -------------------------------------------------
-        // Create offer
-        // -------------------------------------------------
+        // =================================================
+        // IF ALREADY SCREEN SHARING
+        // SEND SCREEN TO NEW USER
+        // =================================================
+
+        console.log(
+            "CREATE OFFER:",
+            userId,
+            "screen sharing:",
+            !!screenStreamRef.current
+        );
+
+
+        console.log(
+            "SENDERS BEFORE:",
+            peerConnection
+                .getSenders()
+                .map((sender) => ({
+                    kind:
+                        sender.track?.kind,
+
+                    label:
+                        sender.track?.label
+                }))
+        );
+
+
+        if (
+            screenStreamRef.current
+        ) {
+
+            const screenTrack =
+                screenStreamRef.current
+                    .getVideoTracks()[0];
+
+
+            if (screenTrack) {
+
+                const videoSender =
+                    peerConnection
+                        .getSenders()
+                        .find(
+                            (sender) =>
+                                sender.track?.kind ===
+                                "video"
+                        );
+
+
+                if (videoSender) {
+
+                    await videoSender.replaceTrack(
+                        screenTrack
+                    );
+
+
+                    console.log(
+                        "Screen track added for new user:",
+                        userId
+                    );
+
+                }
+
+            }
+
+        }
+
+
+        console.log(
+            "SENDERS AFTER:",
+            peerConnection
+                .getSenders()
+                .map((sender) => ({
+                    kind:
+                        sender.track?.kind,
+
+                    label:
+                        sender.track?.label
+                }))
+        );
+
+
+        // =================================================
+        // CREATE OFFER
+        // =================================================
 
         const offer =
             await peerConnection.createOffer();
 
 
-        // -------------------------------------------------
-        // Set local description
-        // -------------------------------------------------
+        // =================================================
+        // SET LOCAL DESCRIPTION
+        // =================================================
 
         await peerConnection
             .setLocalDescription(
@@ -400,21 +464,17 @@ function Meeting() {
             );
 
 
-        // -------------------------------------------------
-        // Send offer
-        // -------------------------------------------------
+        // =================================================
+        // SEND OFFER
+        // =================================================
 
         if (
-
             socketRef.current &&
-
             socketRef.current.readyState ===
-            WebSocket.OPEN
-
+                WebSocket.OPEN
         ) {
 
             socketRef.current.send(
-
                 JSON.stringify({
 
                     type:
@@ -427,7 +487,6 @@ function Meeting() {
                         offer
 
                 })
-
             );
 
 
@@ -452,14 +511,12 @@ function Meeting() {
 
         const queue =
             iceQueuesRef.current[
-            userId
+                userId
             ];
 
 
         if (!queue) {
-
             return;
-
         }
 
 
@@ -506,12 +563,9 @@ function Meeting() {
     function sendChatMessage(text) {
 
         if (
-
             !socketRef.current ||
-
             socketRef.current.readyState !==
-            WebSocket.OPEN
-
+                WebSocket.OPEN
         ) {
 
             console.error(
@@ -524,7 +578,6 @@ function Meeting() {
 
 
         socketRef.current.send(
-
             JSON.stringify({
 
                 type:
@@ -534,7 +587,6 @@ function Meeting() {
                     text
 
             })
-
         );
 
 
@@ -559,14 +611,14 @@ function Meeting() {
 
             try {
 
+                // =================================================
+                // CAMERA + MICROPHONE
+                // =================================================
+
                 console.log(
                     "Requesting camera and microphone..."
                 );
 
-
-                // =================================================
-                // CAMERA + MICROPHONE
-                // =================================================
 
                 const stream =
                     await navigator
@@ -581,7 +633,7 @@ function Meeting() {
 
 
                 // -------------------------------------------------
-                // Component was already removed
+                // Component already removed
                 // -------------------------------------------------
 
                 if (cancelled) {
@@ -614,7 +666,8 @@ function Meeting() {
                     localVideoRef.current
                 ) {
 
-                    localVideoRef.current.srcObject =
+                    localVideoRef.current
+                        .srcObject =
                         stream;
 
                 }
@@ -626,7 +679,7 @@ function Meeting() {
 
 
                 // =================================================
-                // CREATE WEBSOCKET
+                // WEBSOCKET
                 // =================================================
 
                 const WS_URL =
@@ -639,6 +692,7 @@ function Meeting() {
                 const participantName =
                     user?.name ||
                     "Unknown User";
+
 
                 const socket =
                     new WebSocket(
@@ -687,7 +741,7 @@ function Meeting() {
 
 
                         // =========================================
-                        // CHAT MESSAGE
+                        // CHAT
                         // =========================================
 
                         if (
@@ -761,12 +815,22 @@ function Meeting() {
 
                             setParticipants(
                                 (current) => ({
+
                                     ...current,
+
                                     [message.userId]: {
-                                        name: message.name,
-                                        micOn: true,
-                                        cameraOn: true
+
+                                        name:
+                                            message.name,
+
+                                        micOn:
+                                            true,
+
+                                        cameraOn:
+                                            true
+
                                     }
+
                                 })
                             );
 
@@ -807,19 +871,36 @@ function Meeting() {
 
                                 setParticipants(
                                     (current) => ({
+
                                         ...current,
+
                                         [participant.userId]: {
-                                            name: participant.name,
-                                            micOn: true,
-                                            cameraOn: true
+
+                                            name:
+                                                participant.name,
+
+                                            micOn:
+                                                true,
+
+                                            cameraOn:
+                                                true
+
                                         }
+
                                     })
                                 );
 
 
-                                await createOffer(
-                                    participant.userId
-                                );
+                                /*
+                                 * IMPORTANT:
+                                 *
+                                 * The NEW user does NOT create
+                                 * the offer.
+                                 *
+                                 * The EXISTING user creates
+                                 * the offer when receiving
+                                 * "user-joined".
+                                 */
 
                             }
 
@@ -850,16 +931,39 @@ function Meeting() {
 
                             setParticipants(
                                 (current) => ({
+
                                     ...current,
+
                                     [userId]: {
-                                        name: name,
-                                        micOn: true,
-                                        cameraOn: true
+
+                                        name:
+                                            name,
+
+                                        micOn:
+                                            true,
+
+                                        cameraOn:
+                                            true
+
                                     }
+
                                 })
                             );
 
+
+                            // =================================================
+                            // IMPORTANT FIX
+                            //
+                            // EXISTING USER CREATES THE OFFER
+                            // =================================================
+
+                            await createOffer(
+                                userId
+                            );
+
                         }
+
+
                         // =========================================
                         // MICROPHONE STATUS
                         // =========================================
@@ -868,22 +972,30 @@ function Meeting() {
                             message.type ===
                             "mic-status"
                         ) {
+
                             const userId =
                                 message.userId;
+
 
                             console.log(
                                 "MIC STATUS RECEIVED:",
                                 message
                             );
 
+
                             setParticipants(
                                 (current) => {
+
                                     const participant =
                                         current[userId];
 
+
                                     return {
+
                                         ...current,
+
                                         [userId]: {
+
                                             name:
                                                 participant?.name ||
                                                 "Unknown User",
@@ -894,13 +1006,20 @@ function Meeting() {
                                             cameraOn:
                                                 participant?.cameraOn ??
                                                 true
+
                                         }
+
                                     };
+
                                 }
                             );
 
+
                             return;
+
                         }
+
+
                         // =========================================
                         // CAMERA STATUS
                         // =========================================
@@ -909,22 +1028,30 @@ function Meeting() {
                             message.type ===
                             "camera-status"
                         ) {
+
                             const userId =
                                 message.userId;
+
 
                             console.log(
                                 "CAMERA STATUS RECEIVED:",
                                 message
                             );
 
+
                             setParticipants(
                                 (current) => {
+
                                     const participant =
                                         current[userId];
 
+
                                     return {
+
                                         ...current,
+
                                         [userId]: {
+
                                             name:
                                                 participant?.name ||
                                                 "Unknown User",
@@ -935,13 +1062,19 @@ function Meeting() {
 
                                             cameraOn:
                                                 message.cameraOn
+
                                         }
+
                                     };
+
                                 }
                             );
 
+
                             return;
+
                         }
+
 
                         // =========================================
                         // OFFER
@@ -957,17 +1090,36 @@ function Meeting() {
 
 
                             setParticipants(
-                                (current) => ({
+                                (current) => {
 
-                                    ...current,
+                                    const oldParticipant =
+                                        current[userId];
 
-                                    [userId]: {
-                                        name: message.senderName || userId,
-                                        micOn: true,
-                                        cameraOn: true
-                                    }
 
-                                })
+                                    return {
+
+                                        ...current,
+
+                                        [userId]: {
+
+                                            name:
+                                                message.senderName ||
+                                                oldParticipant?.name ||
+                                                userId,
+
+                                            micOn:
+                                                oldParticipant?.micOn ??
+                                                true,
+
+                                            cameraOn:
+                                                oldParticipant?.cameraOn ??
+                                                true
+
+                                        }
+
+                                    };
+
+                                }
                             );
 
 
@@ -1032,7 +1184,6 @@ function Meeting() {
                             // ------------------------------------------------
 
                             socket.send(
-
                                 JSON.stringify({
 
                                     type:
@@ -1045,7 +1196,6 @@ function Meeting() {
                                         answer
 
                                 })
-
                             );
 
 
@@ -1070,21 +1220,6 @@ function Meeting() {
                                 message.sender;
 
 
-                            setParticipants(
-                                (current) => ({
-
-                                    ...current,
-
-                                    [userId]: {
-                                        name: message.senderName || userId,
-                                        micOn: true,
-                                        cameraOn: true
-                                    }
-
-                                })
-                            );
-
-
                             console.log(
                                 "Answer received from:",
                                 userId
@@ -1094,8 +1229,8 @@ function Meeting() {
                             const peerConnection =
                                 peerConnectionsRef
                                     .current[
-                                userId
-                                ];
+                                        userId
+                                    ];
 
 
                             if (
@@ -1145,21 +1280,6 @@ function Meeting() {
                                 message.sender;
 
 
-                            setParticipants(
-                                (current) => ({
-
-                                    ...current,
-
-                                    [userId]: {
-                                        name: message.senderName || userId,
-                                        micOn: true,
-                                        cameraOn: true
-                                    }
-
-                                })
-                            );
-
-
                             console.log(
                                 "ICE candidate received from:",
                                 userId
@@ -1169,8 +1289,8 @@ function Meeting() {
                             const peerConnection =
                                 peerConnectionsRef
                                     .current[
-                                userId
-                                ];
+                                        userId
+                                    ];
 
 
                             // ------------------------------------------------
@@ -1184,22 +1304,22 @@ function Meeting() {
                                 if (
                                     !iceQueuesRef
                                         .current[
-                                    userId
-                                    ]
+                                            userId
+                                        ]
                                 ) {
 
                                     iceQueuesRef
                                         .current[
-                                        userId
-                                    ] = [];
+                                            userId
+                                        ] = [];
 
                                 }
 
 
                                 iceQueuesRef
                                     .current[
-                                    userId
-                                ]
+                                        userId
+                                    ]
                                     .push(
                                         message.candidate
                                     );
@@ -1257,22 +1377,22 @@ function Meeting() {
                                 if (
                                     !iceQueuesRef
                                         .current[
-                                    userId
-                                    ]
+                                            userId
+                                        ]
                                 ) {
 
                                     iceQueuesRef
                                         .current[
-                                        userId
-                                    ] = [];
+                                            userId
+                                        ] = [];
 
                                 }
 
 
                                 iceQueuesRef
                                     .current[
-                                    userId
-                                ]
+                                        userId
+                                    ]
                                     .push(
                                         message.candidate
                                     );
@@ -1342,7 +1462,6 @@ function Meeting() {
                         );
 
                     };
-
 
             } catch (error) {
 
@@ -1473,7 +1592,8 @@ function Meeting() {
                 localVideoRef.current
             ) {
 
-                localVideoRef.current.srcObject =
+                localVideoRef.current
+                    .srcObject =
                     null;
 
             }
@@ -1489,36 +1609,55 @@ function Meeting() {
     // =====================================================
 
     function toggleCamera() {
+
         if (!streamRef.current) {
             return;
         }
 
+
         const videoTrack =
-            streamRef.current.getVideoTracks()[0];
+            streamRef.current
+                .getVideoTracks()[0];
+
 
         if (!videoTrack) {
             return;
         }
 
+
         videoTrack.enabled =
             !videoTrack.enabled;
+
 
         const newCameraState =
             videoTrack.enabled;
 
-        setCameraOn(newCameraState);
+
+        setCameraOn(
+            newCameraState
+        );
+
 
         if (
             socketRef.current &&
-            socketRef.current.readyState === WebSocket.OPEN
+            socketRef.current.readyState ===
+                WebSocket.OPEN
         ) {
+
             socketRef.current.send(
                 JSON.stringify({
-                    type: "camera-status",
-                    cameraOn: newCameraState
+
+                    type:
+                        "camera-status",
+
+                    cameraOn:
+                        newCameraState
+
                 })
             );
+
         }
+
     }
 
 
@@ -1527,36 +1666,55 @@ function Meeting() {
     // =====================================================
 
     function toggleMic() {
+
         if (!streamRef.current) {
             return;
         }
 
+
         const audioTrack =
-            streamRef.current.getAudioTracks()[0];
+            streamRef.current
+                .getAudioTracks()[0];
+
 
         if (!audioTrack) {
             return;
         }
 
+
         audioTrack.enabled =
             !audioTrack.enabled;
+
 
         const newMicState =
             audioTrack.enabled;
 
-        setMicOn(newMicState);
+
+        setMicOn(
+            newMicState
+        );
+
 
         if (
             socketRef.current &&
-            socketRef.current.readyState === WebSocket.OPEN
+            socketRef.current.readyState ===
+                WebSocket.OPEN
         ) {
+
             socketRef.current.send(
                 JSON.stringify({
-                    type: "mic-status",
-                    micOn: newMicState
+
+                    type:
+                        "mic-status",
+
+                    micOn:
+                        newMicState
+
                 })
             );
+
         }
+
     }
 
 
@@ -1568,23 +1726,12 @@ function Meeting() {
 
         try {
 
-            console.log(
-                "Starting screen share..."
-            );
-
-
-            // -------------------------------------------------
-            // Ask browser for screen
-            // -------------------------------------------------
-
             const screenStream =
                 await navigator
                     .mediaDevices
                     .getDisplayMedia({
 
-                        video: true,
-
-                        audio: false
+                        video: true
 
                     });
 
@@ -1595,9 +1742,7 @@ function Meeting() {
 
 
             if (!screenTrack) {
-
                 return;
-
             }
 
 
@@ -1605,53 +1750,65 @@ function Meeting() {
                 screenStream;
 
 
-            // =================================================
-            // REPLACE CAMERA TRACK
-            // =================================================
+            // -------------------------------------------------
+            // Browser "Stop sharing" button
+            // -------------------------------------------------
 
-            const peerConnections =
-                Object.values(
-                    peerConnectionsRef.current
-                );
+            screenTrack.onended =
+                () => {
 
+                    stopScreenShare();
+
+                };
+
+
+            // -------------------------------------------------
+            // Replace camera with screen
+            // for EXISTING participants
+            // -------------------------------------------------
 
             for (
-                const peerConnection
-                of peerConnections
+                const userId in
+                    peerConnectionsRef.current
             ) {
+
+                const peerConnection =
+                    peerConnectionsRef.current[
+                        userId
+                    ];
+
 
                 const videoSender =
                     peerConnection
                         .getSenders()
                         .find(
                             (sender) =>
-                                sender.track &&
-                                sender.track.kind ===
+                                sender.track?.kind ===
                                 "video"
                         );
 
 
                 if (videoSender) {
 
-                    await videoSender
-                        .replaceTrack(
-                            screenTrack
-                        );
+                    await videoSender.replaceTrack(
+                        screenTrack
+                    );
 
                 }
 
             }
 
 
-            // =================================================
-            // SHOW SCREEN LOCALLY
-            // =================================================
+            // -------------------------------------------------
+            // Show screen locally
+            // -------------------------------------------------
 
             if (
                 localVideoRef.current
             ) {
 
-                localVideoRef.current.srcObject =
+                localVideoRef.current
+                    .srcObject =
                     screenStream;
 
             }
@@ -1663,26 +1820,8 @@ function Meeting() {
 
 
             console.log(
-                "Screen sharing started"
+                "Screen sharing started."
             );
-
-
-            // =================================================
-            // BROWSER STOP SHARING
-            // =================================================
-
-            screenTrack.onended =
-                () => {
-
-                    console.log(
-                        "Browser stopped screen share"
-                    );
-
-
-                    stopScreenShare();
-
-                };
-
 
         } catch (error) {
 
@@ -1702,122 +1841,123 @@ function Meeting() {
 
     async function stopScreenShare() {
 
-        console.log(
-            "Stopping screen share..."
-        );
+        const cameraStream =
+            streamRef.current;
 
 
-        const cameraTrack =
-            streamRef.current
-                ?.getVideoTracks()[0];
-
-
-        if (!cameraTrack) {
-
+        if (!cameraStream) {
             return;
-
         }
 
 
-        // =================================================
-        // REPLACE SCREEN WITH CAMERA
-        // =================================================
-
-        const peerConnections =
-            Object.values(
-                peerConnectionsRef.current
-            );
+        const cameraTrack =
+            cameraStream
+                .getVideoTracks()[0];
 
 
-        for (
-            const peerConnection
-            of peerConnections
-        ) {
-
-            const videoSender =
-                peerConnection
-                    .getSenders()
-                    .find(
-                        (sender) =>
-                            sender.track &&
-                            sender.track.kind ===
-                            "video"
-                    );
+        if (!cameraTrack) {
+            return;
+        }
 
 
-            if (videoSender) {
+        try {
 
-                try {
+            // -------------------------------------------------
+            // Replace screen with camera
+            // -------------------------------------------------
 
-                    await videoSender
-                        .replaceTrack(
-                            cameraTrack
+            for (
+                const userId in
+                    peerConnectionsRef.current
+            ) {
+
+                const peerConnection =
+                    peerConnectionsRef.current[
+                        userId
+                    ];
+
+
+                const videoSender =
+                    peerConnection
+                        .getSenders()
+                        .find(
+                            (sender) =>
+                                sender.track?.kind ===
+                                "video"
                         );
 
-                } catch (error) {
 
-                    console.error(
-                        "Could not restore camera:",
-                        error
+                if (videoSender) {
+
+                    await videoSender.replaceTrack(
+                        cameraTrack
                     );
 
                 }
 
             }
 
-        }
 
+            // -------------------------------------------------
+            // Stop screen tracks
+            // -------------------------------------------------
 
-        // =================================================
-        // STOP SCREEN TRACK
-        // =================================================
+            if (
+                screenStreamRef.current
+            ) {
 
-        if (
-            screenStreamRef.current
-        ) {
+                screenStreamRef.current
+                    .getTracks()
+                    .forEach(
+                        (track) => {
 
-            screenStreamRef.current
-                .getTracks()
-                .forEach(
-                    (track) => {
+                            track.onended =
+                                null;
 
-                        track.onended =
-                            null;
+                            track.stop();
 
-                        track.stop();
+                        }
+                    );
 
-                    }
-                );
+            }
 
 
             screenStreamRef.current =
                 null;
 
+
+            // -------------------------------------------------
+            // Show camera locally
+            // -------------------------------------------------
+
+            if (
+                localVideoRef.current
+            ) {
+
+                localVideoRef.current
+                    .srcObject =
+                    cameraStream;
+
+            }
+
+
+            setScreenSharing(
+                false
+            );
+
+
+            console.log(
+                "Screen sharing stopped. Camera restored."
+            );
+
+        } catch (error) {
+
+            console.error(
+                "Failed to stop screen sharing:",
+                error
+            );
+
         }
-
-
-        // =================================================
-        // RESTORE LOCAL CAMERA
-        // =================================================
-
-        if (
-            localVideoRef.current
-        ) {
-
-            localVideoRef.current.srcObject =
-                streamRef.current;
-
-        }
-
-
-        setScreenSharing(
-            false
-        );
-
-
-        console.log(
-            "Screen sharing stopped"
-        );
 
     }
 
@@ -1965,6 +2105,7 @@ function Meeting() {
     // =====================================================
 
     return (
+
         <div className="min-h-screen bg-black text-white p-6 pb-28">
 
             {/* =================================================
@@ -1974,6 +2115,7 @@ function Meeting() {
             <div className="flex justify-between items-center">
 
                 <div>
+
                     <h1 className="text-2xl font-bold">
                         Meeting Room
                     </h1>
@@ -1981,10 +2123,14 @@ function Meeting() {
                     <p className="mt-1 text-gray-400">
                         Meeting ID: {meetingId}
                     </p>
+
                 </div>
 
+
                 <div className="bg-gray-800 px-4 py-2 rounded-lg">
+
                     👥 {participantCount}
+
                 </div>
 
             </div>
@@ -2001,13 +2147,32 @@ function Meeting() {
                 ============================================== */}
 
                 <div className="relative aspect-video">
+
                     <VideoTile
-                        videoRef={localVideoRef}
-                        name={user?.name || "You"}
-                        muted={true}
-                        micOn={micOn}
-                        cameraOn={cameraOn}
-                        screenSharing={screenSharing}
+                        videoRef={
+                            localVideoRef
+                        }
+
+                        name={
+                            user?.name ||
+                            "You"
+                        }
+
+                        muted={
+                            true
+                        }
+
+                        micOn={
+                            micOn
+                        }
+
+                        cameraOn={
+                            cameraOn
+                        }
+
+                        screenSharing={
+                            screenSharing
+                        }
                     />
 
                 </div>
@@ -2019,36 +2184,76 @@ function Meeting() {
 
                 {remoteUsers.map(
                     (userId) => (
+
                         <div
-                            key={userId}
+                            key={
+                                userId
+                            }
                             className="relative aspect-video"
                         >
 
                             <VideoTile
-                                videoRef={(element) => {
-                                    if (
-                                        element &&
-                                        remoteVideosRef.current[userId]
-                                    ) {
-                                        element.srcObject =
-                                            remoteVideosRef.current[userId];
+
+                                videoRef={
+                                    (element) => {
+
+                                        if (
+                                            element &&
+                                            remoteVideosRef
+                                                .current[
+                                                    userId
+                                                ]
+                                        ) {
+
+                                            element.srcObject =
+                                                remoteVideosRef
+                                                    .current[
+                                                        userId
+                                                    ];
+
+                                        }
+
                                     }
-                                }}
+                                }
+
+
                                 name={
-                                    participants[userId]?.name ||
+                                    participants[
+                                        userId
+                                    ]?.name ||
                                     "User"
                                 }
-                                muted={false}
+
+
+                                muted={
+                                    false
+                                }
+
+
                                 micOn={
-                                    participants[userId]?.micOn ?? true
+                                    participants[
+                                        userId
+                                    ]?.micOn ??
+                                    true
                                 }
+
+
                                 cameraOn={
-                                    participants[userId]?.cameraOn ?? true
+                                    participants[
+                                        userId
+                                    ]?.cameraOn ??
+                                    true
                                 }
-                                screenSharing={false}
+
+
+                                screenSharing={
+                                    false
+                                }
+
                             />
 
                         </div>
+
                     )
                 )}
 
@@ -2060,33 +2265,65 @@ function Meeting() {
             ================================================== */}
 
             <ControlBar
-                micOn={micOn}
-                cameraOn={cameraOn}
-                screenSharing={screenSharing}
-                chatOpen={chatOpen}
-                participantsOpen={participantsOpen}
 
-                onToggleMic={toggleMic}
+                micOn={
+                    micOn
+                }
 
-                onToggleCamera={toggleCamera}
+                cameraOn={
+                    cameraOn
+                }
+
+                screenSharing={
+                    screenSharing
+                }
+
+                chatOpen={
+                    chatOpen
+                }
+
+                participantsOpen={
+                    participantsOpen
+                }
+
+
+                onToggleMic={
+                    toggleMic
+                }
+
+
+                onToggleCamera={
+                    toggleCamera
+                }
+
 
                 onToggleScreenShare={
                     toggleScreenShare
                 }
 
-                onToggleChat={() =>
-                    setChatOpen(
-                        (current) => !current
-                    )
+
+                onToggleChat={
+                    () =>
+                        setChatOpen(
+                            (current) =>
+                                !current
+                        )
                 }
 
-                onToggleParticipants={() =>
-                    setParticipantsOpen(
-                        (current) => !current
-                    )
+
+                onToggleParticipants={
+                    () =>
+                        setParticipantsOpen(
+                            (current) =>
+                                !current
+                        )
                 }
 
-                onLeave={leaveMeeting}
+
+                onLeave={
+                    leaveMeeting
+                }
+
             />
 
 
@@ -2095,15 +2332,34 @@ function Meeting() {
             ================================================== */}
 
             {chatOpen && (
+
                 <Chat
-                    messages={messages}
-                    onSendMessage={sendChatMessage}
-                    currentUserId={myUserId}
-                    currentUserName={user?.name}
-                    onClose={() =>
-                        setChatOpen(false)
+
+                    messages={
+                        messages
                     }
+
+                    onSendMessage={
+                        sendChatMessage
+                    }
+
+                    currentUserId={
+                        myUserId
+                    }
+
+                    currentUserName={
+                        user?.name
+                    }
+
+                    onClose={
+                        () =>
+                            setChatOpen(
+                                false
+                            )
+                    }
+
                 />
+
             )}
 
 
@@ -2112,17 +2368,32 @@ function Meeting() {
             ================================================== */}
 
             {participantsOpen && (
+
                 <Participants
-                    participants={participants}
-                    currentUserId={myUserId}
-                    onClose={() =>
-                        setParticipantsOpen(false)
+
+                    participants={
+                        participants
                     }
+
+                    currentUserId={
+                        myUserId
+                    }
+
+                    onClose={
+                        () =>
+                            setParticipantsOpen(
+                                false
+                            )
+                    }
+
                 />
+
             )}
 
         </div>
+
     );
+
 }
 
 export default Meeting;
