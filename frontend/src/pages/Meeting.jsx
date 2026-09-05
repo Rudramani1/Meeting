@@ -28,6 +28,8 @@ function Meeting() {
 
     const iceQueuesRef = useRef({});
 
+    const mediaRecorderRef = useRef(null);
+
 
     // =====================================================
     // STATE
@@ -51,6 +53,9 @@ function Meeting() {
 
     const [participantsOpen, setParticipantsOpen] =
         useState(false);
+
+    const [transcript, setTranscript] = useState([]);
+    const [isTranscribing, setIsTranscribing] = useState(false);
 
 
     // =====================================================
@@ -206,7 +211,7 @@ function Meeting() {
                     event.candidate &&
                     socketRef.current &&
                     socketRef.current.readyState ===
-                        WebSocket.OPEN
+                    WebSocket.OPEN
                 ) {
 
                     socketRef.current.send(
@@ -250,11 +255,11 @@ function Meeting() {
 
                 if (
                     peerConnection.connectionState ===
-                        "failed" ||
+                    "failed" ||
                     peerConnection.connectionState ===
-                        "disconnected" ||
+                    "disconnected" ||
                     peerConnection.connectionState ===
-                        "closed"
+                    "closed"
                 ) {
 
                     removePeerConnection(
@@ -294,7 +299,7 @@ function Meeting() {
 
         const peerConnection =
             peerConnectionsRef.current[
-                userId
+            userId
             ];
 
 
@@ -471,7 +476,7 @@ function Meeting() {
         if (
             socketRef.current &&
             socketRef.current.readyState ===
-                WebSocket.OPEN
+            WebSocket.OPEN
         ) {
 
             socketRef.current.send(
@@ -511,7 +516,7 @@ function Meeting() {
 
         const queue =
             iceQueuesRef.current[
-                userId
+            userId
             ];
 
 
@@ -565,7 +570,7 @@ function Meeting() {
         if (
             !socketRef.current ||
             socketRef.current.readyState !==
-                WebSocket.OPEN
+            WebSocket.OPEN
         ) {
 
             console.error(
@@ -596,7 +601,146 @@ function Meeting() {
         );
 
     }
+    const startTranscription = () => {
 
+        if (!streamRef.current) {
+            console.log("No microphone stream available");
+            return;
+        }
+
+        const audioTracks =
+            streamRef.current.getAudioTracks();
+
+        if (audioTracks.length === 0) {
+            console.log("No microphone track available");
+            return;
+        }
+
+        const audioStream = new MediaStream(
+            audioTracks
+        );
+
+        const recorder = new MediaRecorder(
+            audioStream,
+            {
+                mimeType: "audio/webm"
+            }
+        );
+
+        mediaRecorderRef.current = recorder;
+
+        const chunks = [];
+
+        recorder.ondataavailable = (event) => {
+
+            if (event.data.size > 0) {
+                chunks.push(event.data);
+            }
+
+        };
+
+        recorder.onstop = async () => {
+
+            const audioBlob = new Blob(
+                chunks,
+                {
+                    type: "audio/webm"
+                }
+            );
+
+            await sendAudioForTranscription(
+                audioBlob
+            );
+
+        };
+
+        recorder.start();
+
+        setIsTranscribing(true);
+
+        console.log(
+            "Transcription recording started"
+        );
+    };
+
+    const sendAudioForTranscription = async (
+        audioBlob
+    ) => {
+
+        try {
+
+            const formData = new FormData();
+
+            formData.append(
+                "file",
+                audioBlob,
+                "meeting-audio.webm"
+            );
+
+            const response = await fetch(
+                `${import.meta.env.VITE_API_URL}/transcribe`,
+                {
+                    method: "POST",
+                    body: formData
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(
+                    `Transcription failed: ${response.status}`
+                );
+            }
+
+            const data = await response.json();
+
+            console.log(
+                "Transcription result:",
+                data
+            );
+
+            if (
+                data.success &&
+                data.text
+            ) {
+
+                setTranscript((previous) => [
+                    ...previous,
+                    {
+                        userId: myUserIdRef.current,
+                        text: data.text
+                    }
+                ]);
+
+            }
+
+        } catch (error) {
+
+            console.error(
+                "Transcription error:",
+                error
+            );
+
+        } finally {
+
+            setIsTranscribing(false);
+
+        }
+    };
+
+    const stopTranscription = () => {
+
+        if (
+            mediaRecorderRef.current &&
+            mediaRecorderRef.current.state !== "inactive"
+        ) {
+
+            mediaRecorderRef.current.stop();
+
+            console.log(
+                "Transcription recording stopped"
+            );
+        }
+    };
 
     // =====================================================
     // START MEETING
@@ -1229,8 +1373,8 @@ function Meeting() {
                             const peerConnection =
                                 peerConnectionsRef
                                     .current[
-                                        userId
-                                    ];
+                                userId
+                                ];
 
 
                             if (
@@ -1289,8 +1433,8 @@ function Meeting() {
                             const peerConnection =
                                 peerConnectionsRef
                                     .current[
-                                        userId
-                                    ];
+                                userId
+                                ];
 
 
                             // ------------------------------------------------
@@ -1304,22 +1448,22 @@ function Meeting() {
                                 if (
                                     !iceQueuesRef
                                         .current[
-                                            userId
-                                        ]
+                                    userId
+                                    ]
                                 ) {
 
                                     iceQueuesRef
                                         .current[
-                                            userId
-                                        ] = [];
+                                        userId
+                                    ] = [];
 
                                 }
 
 
                                 iceQueuesRef
                                     .current[
-                                        userId
-                                    ]
+                                    userId
+                                ]
                                     .push(
                                         message.candidate
                                     );
@@ -1377,22 +1521,22 @@ function Meeting() {
                                 if (
                                     !iceQueuesRef
                                         .current[
-                                            userId
-                                        ]
+                                    userId
+                                    ]
                                 ) {
 
                                     iceQueuesRef
                                         .current[
-                                            userId
-                                        ] = [];
+                                        userId
+                                    ] = [];
 
                                 }
 
 
                                 iceQueuesRef
                                     .current[
-                                        userId
-                                    ]
+                                    userId
+                                ]
                                     .push(
                                         message.candidate
                                     );
@@ -1641,7 +1785,7 @@ function Meeting() {
         if (
             socketRef.current &&
             socketRef.current.readyState ===
-                WebSocket.OPEN
+            WebSocket.OPEN
         ) {
 
             socketRef.current.send(
@@ -1698,7 +1842,7 @@ function Meeting() {
         if (
             socketRef.current &&
             socketRef.current.readyState ===
-                WebSocket.OPEN
+            WebSocket.OPEN
         ) {
 
             socketRef.current.send(
@@ -1769,12 +1913,12 @@ function Meeting() {
 
             for (
                 const userId in
-                    peerConnectionsRef.current
+                peerConnectionsRef.current
             ) {
 
                 const peerConnection =
                     peerConnectionsRef.current[
-                        userId
+                    userId
                     ];
 
 
@@ -1868,12 +2012,12 @@ function Meeting() {
 
             for (
                 const userId in
-                    peerConnectionsRef.current
+                peerConnectionsRef.current
             ) {
 
                 const peerConnection =
                     peerConnectionsRef.current[
-                        userId
+                    userId
                     ];
 
 
@@ -2201,15 +2345,15 @@ function Meeting() {
                                             element &&
                                             remoteVideosRef
                                                 .current[
-                                                    userId
-                                                ]
+                                            userId
+                                            ]
                                         ) {
 
                                             element.srcObject =
                                                 remoteVideosRef
                                                     .current[
-                                                        userId
-                                                    ];
+                                                userId
+                                                ];
 
                                         }
 
@@ -2258,7 +2402,26 @@ function Meeting() {
                 )}
 
             </div>
+            <div className="fixed bottom-24 left-4 z-50 w-80 bg-black/80 text-white p-4 rounded-lg">
+                <h3 className="font-semibold mb-2">
+                    Transcript
+                </h3>
 
+                {transcript.length === 0 ? (
+                    <p className="text-gray-400">
+                        No transcript yet
+                    </p>
+                ) : (
+                    transcript.map((item, index) => (
+                        <p
+                            key={index}
+                            className="mb-2"
+                        >
+                            {item.text}
+                        </p>
+                    ))
+                )}
+            </div>
 
             {/* =================================================
                 CONTROL BAR
@@ -2361,6 +2524,23 @@ function Meeting() {
                 />
 
             )}
+            <div className="fixed top-4 right-4 z-50 flex gap-2">
+                <button
+                    onClick={startTranscription}
+                    disabled={isTranscribing}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg disabled:opacity-50"
+                >
+                    Start Transcript
+                </button>
+
+                <button
+                    onClick={stopTranscription}
+                    disabled={!isTranscribing}
+                    className="bg-red-600 text-white px-4 py-2 rounded-lg disabled:opacity-50"
+                >
+                    Stop Transcript
+                </button>
+            </div>
 
 
             {/* =================================================
