@@ -1,22 +1,44 @@
-# Logs
-logs
-*.log
-.env
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Environment variables / secrets
 .env
 .env.*
 !.env.example
-dist
-dist-ssr
+
+# Logs
+*.log
+logs/
+
+# Python test files / local files
+test.py
+test.wav
+
+# Frontend / Vite
+node_modules/
+dist/
+dist-ssr/
 *.local
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
-venv
+
+# Build / cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
